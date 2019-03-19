@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -20,11 +21,13 @@ namespace VWPTestApp
         int maximumIndex;
         private int initialIntex;
         private double scaleValue = 1;
-        DataContext dataContext;
+        SeriesToDisplayViewModel dataContext;
         public VWPMainWindow()
         {
             InitializeComponent();
-            dataContext = new DataContext();
+            dataContext = new SeriesToDisplayViewModel();
+            dataContext.PropertyChanged += DataContext_PropertyChanged;
+            dataContext.SelectTheseSeries += DataContext_SelectTheseSeries;
             SeriesListView.DataContext = dataContext;
             Clean.Command = new CommandHandler(() => Clear(), true);
             load50.Command = new CommandHandler(() => Load(50), true);
@@ -34,6 +37,36 @@ namespace VWPTestApp
             add250.Command = new CommandHandler(() => Add(250), true);
             add1000.Command = new CommandHandler(() => Add(1000), true);
             toggleVPW.Command = new CommandHandler(() => EnableVWP(), true);
+            find.Command = new CommandHandler(() => FindSomething(), true);
+        }
+
+        private void DataContext_SelectTheseSeries(object sender, EventArgs e)
+        {
+            var series = sender as IEnumerable<string>;
+            SeriesListView.UnselectAll();
+            foreach (var item in series)
+            {
+                SeriesListView.SelectedItems.Add(item);
+            }
+            SeriesListView.ScrollIntoView(series.Last());
+        }
+
+        private void DataContext_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "CurrentIndex" && dataContext.CurrentIndex > -1)
+            {
+                SeriesListView.ScrollIntoView(dataContext.RetrievedSeries[dataContext.CurrentIndex]);
+            } 
+        }
+
+        private void FindSomething()
+        {
+            FindWindow find = new FindWindow
+            {
+                Topmost = true,
+                DataContext = new FindViewModel(dataContext)
+            };
+            find.Show();
         }
 
         private void EnableVWP()
@@ -89,7 +122,7 @@ namespace VWPTestApp
                     var visibleSeries = dataContext.RetrievedSeries.ToList();
                     SeriesListView.SelectionMode = SelectionMode.Multiple;
 
-                    var thisSerie = serie.Content.ToString();//serie.DataContext as SeriesViewModel;
+                    var thisSerie = serie.Content.ToString();
                     var currentSelection = dataContext.RetrievedSeries.FirstOrDefault(x => x == thisSerie);
                     if (currentSelection == null)
                         return;
@@ -116,8 +149,7 @@ namespace VWPTestApp
                         }
                         for (int i = indexOfFirst; i <= indexOfLast; i++)
                         {
-                            //if (visibleSeries[i].IsVisible)
-                                SeriesListView.SelectedItems.Add(visibleSeries[i]);
+                             SeriesListView.SelectedItems.Add(visibleSeries[i]);
                         }
                     }
                     else if (indexOfFirst > indexOfLast)
@@ -128,8 +160,7 @@ namespace VWPTestApp
                         }
                         for (int i = indexOfFirst; i >= indexOfLast; i--)
                         {
-                            //if (visibleSeries[i].IsVisible)
-                                SeriesListView.SelectedItems.Add(visibleSeries[i]);
+                             SeriesListView.SelectedItems.Add(visibleSeries[i]);
                         }
                     }
                 }
@@ -173,12 +204,28 @@ namespace VWPTestApp
             e.Handled = true;
         }
     }
-    class DataContext : ViewModelBase
+    public class SeriesToDisplayViewModel : ViewModelBase
     {
         readonly string dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory + @"\..\..\Resources\data.txt");
         readonly string[] potentialSeries;
+        private int currentIndex;
+
+        public int CurrentIndex
+        {
+            get { return currentIndex; }
+            set
+            {
+                if (value != currentIndex)
+                {
+                    currentIndex = value;
+                    RaisePropertyChanged("CurrentIndex");
+                }
+            }
+        }
         public ObservableCollection<string> RetrievedSeries { get; private set; }
-        public DataContext()
+        public event EventHandler SelectTheseSeries;
+
+        public SeriesToDisplayViewModel()
         {
             potentialSeries = File.ReadAllText(dataPath).Split(new string[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
             RetrievedSeries = new ObservableCollection<string>();
@@ -201,6 +248,11 @@ namespace VWPTestApp
             {
                 RetrievedSeries.Add(potentialSeries[i]);
             }
+        }
+
+        internal void AddSeriesToSelection(IEnumerable<string> series)
+        {
+             SelectTheseSeries?.Invoke(series, EventArgs.Empty);
         }
 
         private bool tooManyItems;
@@ -237,6 +289,10 @@ namespace VWPTestApp
         public void Execute(object parameter)
         {
             _action();
+        }
+        public void RaiseCanExecuteChanged()
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
     public class ViewModelBase : INotifyPropertyChanged

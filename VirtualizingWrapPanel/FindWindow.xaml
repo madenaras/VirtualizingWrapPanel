@@ -1,0 +1,45 @@
+﻿<Window x:Class="VWPTestApp.FindWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterOwner"
+        Title="Find Series" Height="220" Width="400" ResizeMode="NoResize">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="1*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="1*"/>
+            <RowDefinition Height="1*"/>
+            <RowDefinition Height="1*"/>
+        </Grid.RowDefinitions>
+        <Button Content="Find" 
+                Margin="20,15" Command="{Binding FindNextCommand}" Grid.Column="1"/>
+        <Button Content="Find All" Margin="20,15" Command="{Binding FindAllCommand}" Grid.Column="1" Grid.Row="1" />
+        <Button Content="Close" Margin="20,15"
+                Command="{Binding CloseWindowCommand}" Grid.Row="2" Grid.Column="1" />
+        <StackPanel VerticalAlignment="Top" Margin="10,5" Grid.Row="2" Orientation="Vertical">
+            <Label Content="Search Direction" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <RadioButton Grid.Column="0" GroupName="Direction" 
+                             VerticalAlignment="Center"
+                             IsChecked="{Binding Direction, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                             HorizontalAlignment="Left" Content="Next"/>
+                <RadioButton Grid.Column="1" GroupName="Direction" 
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Left" Content="Previous" />
+            </Grid>
+        </StackPanel>
+        <TextBlock Margin="10,5" TextWrapping="Wrap" VerticalAlignment="Center"
+                   Text="Enter a search string to find matching series in the Series List Window" />
+        <TextBox Margin="10,5" TextWrapping="Wrap" VerticalAlignment="Center"
+                 Text="{Binding Search, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Grid.Row="1"/>
+    </Grid>
+</Window>

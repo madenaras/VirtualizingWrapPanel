@@ -184,8 +184,17 @@ namespace VWPTestApp
         }
         protected override void BringIndexIntoView(int index)
         {
-            var offset = GetOffsetForFirstVisibleIndex(index);
-            SetVerticalOffset(offset.Height);
+            if (Orientation == Orientation.Horizontal)
+            {
+                var offset = GetOffsetForFirstVisibleIndex(index);
+                SetVerticalOffset(offset.Height);
+            }
+            else
+            {
+                var section = m_abstractPanel[index].Section;
+                if (section >= ViewportWidth + HorizontalOffset || section < HorizontalOffset)
+                    SetHorizontalOffset(section);
+            }
         }
 
         /// <summary>
@@ -204,7 +213,6 @@ namespace VWPTestApp
                 itemIndex = gen.IndexFromContainer(element);
             }
 
-            //int section = m_abstractPanel[itemIndex].Section;
             Rect elementRect = m_realizedChildLayout[element];
             if (Orientation == Orientation.Horizontal)
             {
@@ -494,7 +502,7 @@ namespace VWPTestApp
                 case NotifyCollectionChangedAction.Remove:
                 case NotifyCollectionChangedAction.Replace:
                     RemoveInternalChildRange(args.Position.Index, args.ItemUICount);
-                    
+                    ComputeExtentAndViewport(m_pixelMeasuredViewport);
                     ScrollOwner?.InvalidateScrollInfo();
                     break;
                 case NotifyCollectionChangedAction.Move:

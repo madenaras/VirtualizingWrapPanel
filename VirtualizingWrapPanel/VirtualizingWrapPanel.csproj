@@ -53,9 +53,17 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="FindViewModel.cs" />
+    <Compile Include="FindWindow.xaml.cs">
+      <DependentUpon>FindWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Helpers.cs" />
     <Compile Include="VirtualizingWrapPanel-original.cs" />
     <Compile Include="VirtualizingWrapPanel.cs" />
+    <Page Include="FindWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="VWPMainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
