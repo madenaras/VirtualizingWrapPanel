@@ -79,6 +79,7 @@ namespace VWPTestApp
         /// <param name="index">Index of item to show</param>
         public void SetFirstRowViewItemIndex(int index)
         {
+            Debug.WriteLine("Set First Row View Item Index");
             SetVerticalOffset((index) / Math.Floor((m_viewport.Width) / m_childSize.Width));
             SetHorizontalOffset((index) / Math.Floor((m_viewport.Height) / m_childSize.Height));
         }
@@ -88,10 +89,16 @@ namespace VWPTestApp
         /// <returns>Index of the first section that is currently visible</returns>
         public int GetFirstVisibleSection()
         {
+            Debug.WriteLine("Get First Visible Section");
             int section = (Orientation == Orientation.Horizontal)
                 ? (int)m_offset.Y
                 : (int)m_offset.X;
-            return m_abstractPanel == null || m_abstractPanel.ItemCount == 0 ? 0 : Math.Min(m_abstractPanel.Max(x => x.Section), section);
+            if (m_abstractPanel == null || m_abstractPanel.ItemCount == 0 )
+                return 0;
+            else if (m_abstractPanel.AverageItemsPerSection == m_abstractPanel.ItemCount && section > 0)
+                return section;
+            else
+                return Math.Min(m_abstractPanel.Max(x => x.Section), section);
         }
 
         /// <summary>
@@ -99,6 +106,7 @@ namespace VWPTestApp
         /// <returns>Index of the first visible item</returns>
         public int GetFirstVisibleIndex()
         {
+            Debug.WriteLine("Get First Visible Index");
             int section = GetFirstVisibleSection();
             var item = m_abstractPanel?.FirstOrDefault(x => x.Section == section);
 
@@ -184,6 +192,7 @@ namespace VWPTestApp
         }
         protected override void BringIndexIntoView(int index)
         {
+            Debug.WriteLine("Bring Index Into View " + index.ToString());
             if (Orientation == Orientation.Horizontal)
             {
                 var offset = GetOffsetForFirstVisibleIndex(index);
@@ -204,6 +213,7 @@ namespace VWPTestApp
         /// <returns>A Rect that is visible.</returns>
         public Rect MakeVisible(Visual visual, Rect rectangle)
         {
+            Debug.WriteLine("MAKE VISIBLE " + visual.ToString());
             var gen = m_generator.GetItemContainerGeneratorForPanel(this);
             var element = (UIElement)visual;
             int itemIndex = gen.IndexFromContainer(element);
@@ -316,6 +326,7 @@ namespace VWPTestApp
         /// <param name="offset">The degree to which content is horizontally offset from the containing viewport.</param>
         public void SetHorizontalOffset(double offset)
         {
+            Debug.WriteLine("Set Horizontal Offset");
             if (offset < 0 || Double.IsNaN(offset) || m_viewport.Width >= m_extent.Width)
             {
                 offset = 0;
@@ -336,6 +347,7 @@ namespace VWPTestApp
         /// <param name="offset">The degree to which content is vertically offset from the containing viewport.</param>
         public void SetVerticalOffset(double offset)
         {
+            Debug.WriteLine("Set Vertical Offset");
             if (offset < 0 || m_viewport.Height >= m_extent.Height)
             {
                 offset = 0;
@@ -500,26 +512,37 @@ namespace VWPTestApp
             switch (args.Action)
             {
                 case NotifyCollectionChangedAction.Remove:
-                case NotifyCollectionChangedAction.Replace:
+                    Debug.WriteLine("REMOVING ITEM FROM ITEM CONTROL: " + args.Position.Index);
                     RemoveInternalChildRange(args.Position.Index, args.ItemUICount);
-                    ComputeExtentAndViewport(m_pixelMeasuredViewport);
-                    ScrollOwner?.InvalidateScrollInfo();
+                    if (args.Position.Index >= 0)
+                        m_abstractPanel?.Remove(args.Position.Index);
+                    else
+                        m_abstractPanel = null;
+                    break;
+                case NotifyCollectionChangedAction.Replace:
+                    Debug.WriteLine("REPLACING ITEM FROM ITEM CONTROL");
+                    RemoveInternalChildRange(args.Position.Index, args.ItemUICount);
                     break;
                 case NotifyCollectionChangedAction.Move:
+                    Debug.WriteLine("MOVING ITEM FROM ITEM CONTROL");
                     RemoveInternalChildRange(args.OldPosition.Index, args.ItemUICount);
                     break;
                 case NotifyCollectionChangedAction.Reset:
-                    m_abstractPanel = new WrapPanelAbstraction(0);
+                    Debug.WriteLine("RESETTING ITEM CONTROL");
+                    m_abstractPanel = null;
                     ResetScrollInfo();
-                    ComputeExtentAndViewport(m_pixelMeasuredViewport);
-                    ScrollOwner?.InvalidateScrollInfo();
                     break;
                 case NotifyCollectionChangedAction.Add:
-                    m_abstractPanel = null;
+                    Debug.WriteLineIf(args.Position.Index != -1, "ADDING ITEM FROM ITEM CONTROL");
+                    Debug.WriteLineIf(args.Position.Index != -1, "Index: " + args.Position.Index + " Offset: " + args.Position.Offset);
+                    if (args.Position.Index == -1)
+                        m_abstractPanel = null;
+                    else
+                        m_abstractPanel.Insert(args.Position.Index);
                     break;
             }
+            ScrollOwner?.InvalidateScrollInfo();
         }
-
         /// <summary>
         /// Event fired when the control is initialized.</summary>
         /// <param name="e">Event args</param>
@@ -552,6 +575,7 @@ namespace VWPTestApp
             if (m_itemsControl == null || m_itemsControl.Items.Count == 0)
             {
                 Debug.WriteLine("NO ITEMS!!!!!!!!!!!");
+                ComputeExtentAndViewport(availableSize);
                 return availableSize;
             }
 
@@ -563,8 +587,8 @@ namespace VWPTestApp
 
             Size realizedFrameSize = availableSize;
             int itemCount = m_itemsControl.Items.Count;
-
             int firstVisibleIndex = GetFirstVisibleIndex();
+            Debug.WriteLine("First visible index from Measure: " + firstVisibleIndex);
             var startPos = m_generator.GeneratorPositionFromIndex(firstVisibleIndex);
             int childIndex = (startPos.Offset == 0) ? startPos.Index : startPos.Index + 1;
             int current = firstVisibleIndex;
@@ -648,7 +672,7 @@ namespace VWPTestApp
                                 c.Width = maxItemSize;
                                 maximumRectanglesTotal.Add(item.Key, c);
                             }
-                            if (m_abstractPanel.AverageItemsPerSection == itemCount)
+                            if (m_abstractPanel.AverageItemsPerSection == itemCount || m_abstractPanel.AverageItemsPerSection != maximumRectanglesForColumn.Count)
                                 m_abstractPanel.AverageItemsPerSection = maximumRectanglesForColumn.Count;
                             maximumRectanglesForColumn.Clear();
                         }
@@ -680,6 +704,8 @@ namespace VWPTestApp
                     current++;
                     childIndex++;
                 }
+                if (maximumRectanglesForColumn.Count == 1 && maxItemSize == 0)
+                    maxItemSize = maximumRectanglesForColumn.First().Value.Width;
                 foreach (var item in maximumRectanglesForColumn)
                 {
                     var c = item.Value;
@@ -730,8 +756,8 @@ namespace VWPTestApp
 
             if (!(ItemContainerGenerator is ItemContainerGenerator items))
                 return;
+
             BringIndexIntoView(items.IndexFromContainer(listViewItem));
-            listViewItem.Focus();
         }
         private Size GetOffsetForFirstVisibleIndex(int index)
         {
@@ -749,7 +775,7 @@ namespace VWPTestApp
 
         private void Resizing(object sender, SizeChangedEventArgs e)
         {
-            if (m_viewport.Width > 0.0 && m_viewport.Width != m_abstractPanel.SectionCount)
+            if (m_viewport.Width > 0.0 && m_viewport.Width != m_abstractPanel?.SectionCount)
             {
                 int firstIndexCache = m_firstIndex;
                 m_abstractPanel = null;
@@ -759,11 +785,7 @@ namespace VWPTestApp
                 m_firstIndex = firstIndexCache;
             }
         }
-        private void ResetExtend()
-        {
-            m_extent.Width = 0;
-            m_extent.Height = 0;
-        }
+
         private void ResetScrollInfo()
         {
             SetVerticalOffset(0);
@@ -799,6 +821,7 @@ namespace VWPTestApp
 
             return itemIndex;
         }
+        #region Navigation
 
         private void NavigateDown()
         {
@@ -902,7 +925,6 @@ namespace VWPTestApp
 
         private void NavigateRight()
         {
-
             var gen = m_generator.GetItemContainerGeneratorForPanel(this);
             var selected = (UIElement)Keyboard.FocusedElement;
             int itemIndex = gen.IndexFromContainer(selected);
@@ -1000,7 +1022,7 @@ namespace VWPTestApp
 
             (next as UIElement).Focus();
         }
-
+        #endregion
         private UIElementCollection m_children;
         private IItemContainerGenerator m_generator;
         private ItemsControl m_itemsControl;
@@ -1020,7 +1042,7 @@ namespace VWPTestApp
             private readonly WrapPanelAbstraction m_panel;
             /// <summary>
             /// Gets the item index</summary>
-            public readonly int Index;
+            public int Index;
 
             /// <summary>
             /// Constructor</summary>
@@ -1051,8 +1073,16 @@ namespace VWPTestApp
         /// Helper class to deal with wrap panel logistics</summary>
         protected class WrapPanelAbstraction : IEnumerable<ItemAbstraction>
         {
-            private ReadOnlyCollection<ItemAbstraction> Items { get; set; }
-            private readonly object m_syncRoot = new object();
+            private List<ItemAbstraction> Items { get; set; }
+            /// <summary>
+            /// Number of items
+            /// </summary>
+            public int ItemCount { get; private set; }
+            /// <summary>
+            /// The average number of items in a section
+            /// </summary>
+            public int AverageItemsPerSection { get; set; }
+
             /// <summary>
             /// Constructor</summary>
             /// <param name="itemCount">Number of items</param>
@@ -1065,18 +1095,10 @@ namespace VWPTestApp
                     items.Add(item);
                 }
 
-                Items = new ReadOnlyCollection<ItemAbstraction>(items);
+                Items = new List<ItemAbstraction>(items);
                 AverageItemsPerSection = itemCount;
                 ItemCount = itemCount;
             }
-
-            /// <summary>
-            /// Number of items</summary>
-            public readonly int ItemCount;
-
-            /// <summary>
-            /// The average number of items in a section</summary>
-            public int AverageItemsPerSection { get; set; }
 
             /// <summary>
             /// Gets the number of sections</summary>
@@ -1085,6 +1107,25 @@ namespace VWPTestApp
                 get
                 {
                     return AverageItemsPerSection == 0 ? 1 : (int)Math.Ceiling((double)ItemCount / AverageItemsPerSection);
+                }
+            }
+
+            internal void Insert(int index)
+            {
+                Items.Insert(index + 1, new ItemAbstraction(this, index));
+                ItemCount++;
+                for (int i = index + 1; i < ItemCount; i++)
+                {
+                    Items[i].Index++;
+                }
+            }
+            internal void Remove(int index)
+            {
+                Items.RemoveAt(index);
+                ItemCount--;
+                for (int i = index; i < ItemCount; i++)
+                {
+                    Items[i].Index--;
                 }
             }
 
@@ -1115,7 +1156,6 @@ namespace VWPTestApp
             {
                 return GetEnumerator();
             }
-
             #endregion
         }
     }

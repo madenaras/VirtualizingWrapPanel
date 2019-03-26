@@ -56,7 +56,7 @@ namespace VWPTestApp
             if (e.PropertyName == "CurrentIndex" && dataContext.CurrentIndex > -1)
             {
                 SeriesListView.ScrollIntoView(dataContext.RetrievedSeries[dataContext.CurrentIndex]);
-            } 
+            }
         }
 
         private void FindSomething()
@@ -121,21 +121,13 @@ namespace VWPTestApp
                 {
                     var visibleSeries = dataContext.RetrievedSeries.ToList();
                     SeriesListView.SelectionMode = SelectionMode.Multiple;
-
                     var thisSerie = serie.Content.ToString();
-                    var currentSelection = dataContext.RetrievedSeries.FirstOrDefault(x => x == thisSerie);
-                    if (currentSelection == null)
-                        return;
-
                     var indexOfFirst = SeriesListView.SelectedIndex;
-                    var indexOfLast = visibleSeries.IndexOf(currentSelection);
+                    var indexOfLast = dataContext.RetrievedSeries.IndexOf(thisSerie);
 
                     if (!isMouseDown)
-                    {
-                        initialIntex = indexOfFirst;
-                        maximumIndex = indexOfLast;
                         isMouseDown = true;
-                    }
+
                     if (indexOfFirst == indexOfLast)
                     {
                         SeriesListView.UnselectAll();
@@ -149,7 +141,7 @@ namespace VWPTestApp
                         }
                         for (int i = indexOfFirst; i <= indexOfLast; i++)
                         {
-                             SeriesListView.SelectedItems.Add(visibleSeries[i]);
+                            SeriesListView.SelectedItems.Add(visibleSeries[i]);
                         }
                     }
                     else if (indexOfFirst > indexOfLast)
@@ -160,7 +152,7 @@ namespace VWPTestApp
                         }
                         for (int i = indexOfFirst; i >= indexOfLast; i--)
                         {
-                             SeriesListView.SelectedItems.Add(visibleSeries[i]);
+                            SeriesListView.SelectedItems.Add(visibleSeries[i]);
                         }
                     }
                 }
@@ -203,11 +195,43 @@ namespace VWPTestApp
             }
             e.Handled = true;
         }
+
+        private void ListBoxItem_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ListViewItem series)
+            {
+                var index = SeriesListView.Items.Cast<string>().ToList().IndexOf(series.Content.ToString());
+                dataContext.Insert(3, index);
+            }
+        }
+
+        private void Filter_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            dataContext.RetrievedSeries.Clear();
+            foreach (var item in dataContext.potentialSeries)
+            {
+                if (item.Contains(Filter.Text))
+                    dataContext.RetrievedSeries.Add(item);
+            }
+        }
+
+        private void SeriesListView_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.IsKeyDown(Key.Delete))
+            {
+                var toDelete = SeriesListView.SelectedItems.Cast<string>().ToList();
+                foreach (var item in toDelete)
+                {
+                    dataContext.RetrievedSeries.Remove(item);
+                }
+            }
+        }
     }
     public class SeriesToDisplayViewModel : ViewModelBase
     {
+        //readonly string dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory + @"\..\..\Resources\data_small.txt");
         readonly string dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory + @"\..\..\Resources\data.txt");
-        readonly string[] potentialSeries;
+        internal readonly string[] potentialSeries;
         private int currentIndex;
 
         public int CurrentIndex
@@ -224,11 +248,18 @@ namespace VWPTestApp
         }
         public ObservableCollection<string> RetrievedSeries { get; private set; }
         public event EventHandler SelectTheseSeries;
+        public CommandHandler ClearSelectedSeriesCommand;
 
         public SeriesToDisplayViewModel()
         {
             potentialSeries = File.ReadAllText(dataPath).Split(new string[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
             RetrievedSeries = new ObservableCollection<string>();
+            ClearSelectedSeriesCommand = new CommandHandler(() => DeleteSelectedItems(), true);
+        }
+
+        private void DeleteSelectedItems()
+        {
+            
         }
 
         internal void Load(int items)
@@ -249,10 +280,16 @@ namespace VWPTestApp
                 RetrievedSeries.Add(potentialSeries[i]);
             }
         }
-
+        internal void Insert(int items, int index)
+        {
+            for (int i = 0; i < items; i++)
+            {
+                RetrievedSeries.Insert(++index, potentialSeries[i] + "ADD" + index);
+            }
+        }
         internal void AddSeriesToSelection(IEnumerable<string> series)
         {
-             SelectTheseSeries?.Invoke(series, EventArgs.Empty);
+            SelectTheseSeries?.Invoke(series, EventArgs.Empty);
         }
 
         private bool tooManyItems;
